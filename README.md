@@ -30,3 +30,6 @@ The solution is based on modifying and adapting what other people smarter than m
 - https://nodal-notebook.aria-network.com/technical_advice/auto-adjusting-screen-resolutions-kvm-qemu-udev-spice/
 - https://gitlab.xfce.org/xfce/xfce4-settings/-/issues/142
 - https://gitlab.com/apteryks/x-resize
+
+Tested on:
+Kali GNU/Linux Rolling, release 2024.4, kernel 6.11.2-amd64, desktop environment Xfce 4.20
