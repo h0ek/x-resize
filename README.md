@@ -20,4 +20,13 @@ chmod +x setup-x-resize.sh
 sudo ./setup-x-resize.sh
 ```
 
-Be happy that your Kali with XFCE auto resize VM with windows :) Ah yeah make sure you select that in View->Scale Display->Auto resize VM with windows
+Be happy that your Kali with XFCE auto resize VM with windows :) Ah yeah make sure you select that in `View->Scale Display->Auto resize VM with windows` in your Virt-Manager
+
+The solution is based on modifying and adapting what other people smarter than me have come up with:
+- https://superuser.com/questions/1183834/no-auto-resize-with-spice-and-virt-manager
+- https://unix.stackexchange.com/questions/117083/how-to-get-the-list-of-all-active-x-sessions-and-owners-of-them
+- https://gitlab.freedesktop.org/xorg/app/xrandr/-/issues/71
+- https://unix.stackexchange.com/questions/614027/how-to-enable-automatic-change-of-guest-resolution-to-fit-boxes-window
+- https://nodal-notebook.aria-network.com/technical_advice/auto-adjusting-screen-resolutions-kvm-qemu-udev-spice/
+- https://gitlab.xfce.org/xfce/xfce4-settings/-/issues/142
+- https://gitlab.com/apteryks/x-resize
