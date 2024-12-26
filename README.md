@@ -8,10 +8,10 @@ If you install any Linux system with the XFCE desktop environment in KVM using V
 
 0. Read the script and understand what it does before you trust me and run it as root on your system xD
 1. Download the script:
-`wget -O setup-x-resize.sh https://raw.githubusercontent.com/h0ek/x-resize/refs/heads/main/setup-x-resize.sh`
+```wget -O setup-x-resize.sh https://raw.githubusercontent.com/h0ek/x-resize/refs/heads/main/setup-x-resize.sh```
 2. Make it executable:
-`chmod +x setup-x-resize.sh`
+```chmod +x setup-x-resize.sh```
 3. Execute as root:
-`sudo ./setup-x-resize.sh`
+```sudo ./setup-x-resize.sh```
 
 Be happy that your Kali with XFCE auto resize VM with windows :) Ah yeah make sure you select that in View->Scale Display->Auto resize VM with windows
