@@ -2,7 +2,7 @@
 Auto-resize X screen on resolution change.
 
 A script and systemd service that automatically adjusts the X screen resolution when the display size changes, using xrandr and monitoring RANDR events. Ideal for virtual machines or systems with dynamic resolution changes.
-I am using it for my Kali machine with XFCE on KVM (virtm-manager).
+I am using it for my Kali machine with XFCE on KVM (virt-manager).
 
 If you install any Linux system with the XFCE desktop environment in KVM using VirtManager, install spice-agent and qemu-guest-agent, configure everything as it should be and still the screen scaling doesn't work and you almost start crying after hours of Googling and configuration changes you finally come across this repository. Wipe away the tears and sweat, read on and you won't be disappointed.
 
