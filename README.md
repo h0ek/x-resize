@@ -35,8 +35,6 @@ The solution is based on modifying and adapting what other people smarter than m
 - https://github.com/seife/spice-autorandr
 - https://logos-red.com/blog/how-to-fix-kali-linux-qemu-resize-issue/
 
-Tested on:
+Tested on: Kali GNU/Linux Rolling, release 2024.4, kernel 6.11.2-amd64, desktop environment Xfce 4.20
 
-Kali GNU/Linux Rolling, release 2024.4, kernel 6.11.2-amd64, desktop environment Xfce 4.20
-
-Should work on any modern Linux system with systemd and Xfce.
+Solution should work for any modern Linux system with systemd and Xfce.
