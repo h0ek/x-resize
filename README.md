@@ -1,5 +1,5 @@
 # x-resize
-Auto-resize X screen on resolution change.
+Auto-resize X screen on resolution change for Kali with XFCE on KVM.
 
 A script and systemd service that automatically adjusts the X screen resolution when the display size changes, using xrandr and monitoring RANDR events. Ideal for virtual machines or systems with dynamic resolution changes.
 I am using it for my Kali machine with XFCE on KVM (virt-manager).
