@@ -1,5 +1,5 @@
 # x-resize
-Auto-resize X screen on resolution change for Kali with XFCE on KVM.
+Auto-resize X screen on resolution change for Kali with XFCE on KVM (but it also works with Whonix Workstation).
 
 A script and systemd service that automatically adjusts the X screen resolution when the display size changes, using xrandr and monitoring RANDR events. Ideal for virtual machines or systems with dynamic resolution changes.
 I am using it for my Kali machine with XFCE on KVM (virt-manager).
@@ -35,6 +35,8 @@ The solution is based on modifying and adapting what other people smarter than m
 - https://github.com/seife/spice-autorandr
 - https://logos-red.com/blog/how-to-fix-kali-linux-qemu-resize-issue/
 
-Tested on: Kali GNU/Linux Rolling, release 2024.4, kernel 6.11.2-amd64, desktop environment Xfce 4.20
+Tested on: 
+- Kali GNU/Linux Rolling, release 2024.4, kernel 6.11.2-amd64, desktop environment Xfce 4.20
+- Whonix Workstation 17, kernel 6.1.0-37-amd64, desktop environment Xfce 4.18
 
 Solution should work for any modern Linux system with systemd and Xfce.
