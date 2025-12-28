@@ -10,7 +10,7 @@ If you install any Linux system with the XFCE or MATE desktop environment in KVM
 This repo provides **three installers**, kept stylistically consistent:
 
 - **Kali XFCE**: dynamic resize + **absolute pointer fix** (evdev calibration).
-- **Parrot MATE**: simple and fast RandR auto-resize.
+- **Parrot MATE**: simple and fast RandR auto-resize. (only for Parrot 6 with Mate)
 - **Generic XFCE/MATE (Xorg)**: portable RandR auto-resize (no evdev tweaks).
 
 ## 🧩 Requirements
@@ -56,7 +56,7 @@ chmod +x setup-x-resize-xfce-kali.sh
 
 > **After install**: log out/in (or reboot) so Xorg loads the evdev InputClass.
 
-### 🦜 Parrot OS (MATE)
+### 🦜 Parrot OS <= 6 (MATE)
 
 Run as **your normal user**:
 
@@ -251,7 +251,9 @@ The solution is based on modifying and adapting what other people smarter than m
 
 | Distribution | Version  | Kernel | Desktop environment |
 | ------------ | -------- | ------ | ------------------- |
-| Parrot OS    | 6.4      | 6.12.x | MATE 1.26           |
+| Parrot OS*    | 6.4      | 6.12.x | MATE 1.26           |
 | Kali Linux   | 2025.3   | 6.12.x | XFCE 4.20           |
 | Whonix       | 17.4.4.6 | 6.12.x | XFCE 4.20           |
 | Debian       | 13.1     | 6.12.x | XFCE 4.20           |
+
+*Since version 7, Parrot has been using KDE, so scaling works there without these scripts.
