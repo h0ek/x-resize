@@ -10,6 +10,7 @@ If you install any Linux system with the XFCE or MATE desktop environment in KVM
 This repo provides **three installers**, kept stylistically consistent:
 
 - **Kali XFCE**: dynamic resize + **absolute pointer fix** (evdev calibration).
+- **Arch XFCE**: dynamic resize + **absolute pointer fix** (evdev calibration).
 - **Parrot MATE**: simple and fast RandR auto-resize. (only for Parrot 6 with Mate)
 - **Generic XFCE/MATE (Xorg)**: portable RandR auto-resize (no evdev tweaks).
 
@@ -20,8 +21,8 @@ Make sure your **VM guest** (Kali / Parrot / Debian / Ubuntu / etc.) has:
 - `spice-vdagent`
 - `qemu-guest-agent`
 - **SPICE channel** added in Virt-Manager (`com.redhat.spice.0`)
-- In **Virt-Manager** window:  
-  ✔️ *View → Auto resize VM with window* = **ON**  
+- In **Virt-Manager** window:
+  ✔️ *View → Auto resize VM with window* = **ON**
   ✔️ *View → Scale Display* = **ON**
 
 > Works on **Xorg**. The scripts exit cleanly if a desktop ever switches to Wayland.
@@ -43,6 +44,32 @@ chmod +x setup-x-resize-xfce-kali.sh
 🪄 This script:
 
 - Installs (if missing): `x11-xserver-utils`, `x11-utils`, `xinput`, `xserver-xorg-input-evdev`
+- Creates:
+  - `~/.local/bin/x-resize-xfce`
+  - `~/.config/systemd/user/x-resize-xfce.service`
+  - **`/etc/X11/xorg.conf.d/70-tablet-evdev.conf`** (maps QEMU/SPICE tablets to **evdev** in **Absolute** mode)
+- On each resize:
+  - Runs `xrandr --auto`
+  - Reads current `WxH`
+  - Sets **Evdev Axis Calibration** (`0..W-1, 0..H-1`) to keep the pointer perfectly aligned
+  - Applies a no-op transform to force Xorg to re-evaluate maps
+- Enables a **systemd user service** (autostarts after login)
+
+> **After install**: log out/in (or reboot) so Xorg loads the evdev InputClass.
+
+### 🐧 Arch Linux (XFCE) with evdev calibration
+
+Run the following as **your normal user**:
+
+```bash
+wget -O setup-x-resize-xfce-arch.sh https://raw.githubusercontent.com/h0ek/x-resize/refs/heads/main/setup-x-resize-xfce-arch.sh
+chmod +x setup-x-resize-xfce-arch.sh
+./setup-x-resize-xfce-arch.sh
+```
+
+🪄 This script:
+
+- Installs (if missing): `xorg-xrandr`, `xorg-xev`, `xorg-xinput`, `libevdev`, `spice-vdagent`, `qemu-guest-agent`
 - Creates:
   - `~/.local/bin/x-resize-xfce`
   - `~/.config/systemd/user/x-resize-xfce.service`
@@ -172,7 +199,7 @@ On resize you should see e.g.:
 
 5. **Pointer offset on Kali XFCE** (odd modes like `1809x1055`):
 
-   - Use the **Kali XFCE** installer (evdev). It calibrates:  
+   - Use the **Kali XFCE** installer (evdev). It calibrates:
      `Evdev Axis Calibration = 0..W-1, 0..H-1` after each resize.
 
    - Verify props after a resize:
