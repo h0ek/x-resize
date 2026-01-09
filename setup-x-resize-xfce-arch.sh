@@ -2,10 +2,10 @@
 # setup-x-resize-xfce-arch.sh
 # https://github.com/h0ek/x-resize
 # Project: x-resize — unified RandR auto-resize helpers
-# Variant: arch + XFCE on Xorg (KVM/SPICE) with evdev absolute-pointer calibration
+# Variant: Arch + XFCE on Xorg (KVM/SPICE) with evdev absolute-pointer calibration
 #
 # What this installer does:
-#   - Ensures deps: xorg-xrandr, xorg-xev, xorg-xinput, libevdev, spice-vdagent, qemu-guest-agent
+#   - Ensures deps: xorg-xrandr, xorg-xev, xorg-xinput, xf86-input-evdev, spice-vdagent (+ qemu-guest-agent on KVM)
 #   - Adds /etc/X11/xorg.conf.d/70-tablet-evdev.conf (QEMU/SPICE tablets → evdev, Absolute)
 #   - Installs ~/.local/bin/x-resize-xfce (RandR listener → xrandr --auto + evdev Axis Calibration to current WxH)
 #   - Creates & enables ~/.config/systemd/user/x-resize-xfce.service
@@ -42,17 +42,29 @@ EVDEV_FILE="${XORG_DIR}/70-tablet-evdev.conf"
 
 mkdir -p "${BIN_DIR}" "${UNIT_DIR}"
 
-# --- deps (xev/xrandr/xinput/evdev) ---
+# --- helpers ---
+have_pkg() { pacman -Qq "$1" >/dev/null 2>&1; }
+
+# --- deps ---
 missing=()
+
 command -v xrandr >/dev/null 2>&1 || missing+=("xorg-xrandr")
-command -v xev     >/dev/null 2>&1 || missing+=("xorg-xev")
-command -v xinput  >/dev/null 2>&1 || missing+=("xorg-xinput")
-pacman -Qs libevdev >/dev/null 2>&1 || missing+=("libevdev")
-[[ $(systemd-detect-virt) == "kvm" ]] && ! pacman -Qs qemu-guest-agent >/dev/null 2>&1 || missing+=("qemu-guest-agent")
-pacman -Qs spice-vdagent >/dev/null 2>&1 || missing+=("spice-vdagent")
+command -v xev    >/dev/null 2>&1 || missing+=("xorg-xev")
+command -v xinput >/dev/null 2>&1 || missing+=("xorg-xinput")
+
+# Needed because we force Driver "evdev" in Xorg InputClass below
+have_pkg xf86-input-evdev || missing+=("xf86-input-evdev")
+
+# Recommended for SPICE session usability
+have_pkg spice-vdagent || missing+=("spice-vdagent")
+
+# Only on KVM guests (harmless if installed anyway, but keep it conditional)
+if [[ "$(systemd-detect-virt 2>/dev/null || true)" == "kvm" ]]; then
+  have_pkg qemu-guest-agent || missing+=("qemu-guest-agent")
+fi
+
 if (( ${#missing[@]} )); then
   echo "Installing required packages: ${missing[*]} ..."
-  sudo pacman -Syu --noconfirm
   sudo pacman -Syu --needed --noconfirm "${missing[@]}"
 fi
 
@@ -80,18 +92,17 @@ echo "Installing ${SCRIPT_FILE} ..."
 cat > "${SCRIPT_FILE}" <<'EOF'
 #!/usr/bin/env bash
 # x-resize-xfce: XFCE/Xorg RandR auto-resize + evdev axis calibration (user mode)
-# Fixes absolute-pointer offset when SPICE yields odd modes (e.g., 1809x1055).
 # Per RandR event:
 #   1) xrandr --auto on active output
 #   2) read current WxH
-#   3) set "Evdev Axis Calibration" = 0..W-1, 0..H-1 on tablets
+#   3) if device has "Evdev Axis Calibration": set 0..W-1, 0..H-1
 #   4) apply a no-op transform to force Xorg to re-evaluate maps
 
 set -euo pipefail
 log(){ logger -t x-resize-xfce -- "$*"; echo "[x-resize-xfce] $*"; }
 
 # Require Xorg
-if [ "${XDG_SESSION_TYPE:-}" != "x11" ]; then
+if [[ "${XDG_SESSION_TYPE:-}" != "x11" ]]; then
   log "Not X11 (XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-unset}); exiting."
   exit 0
 fi
@@ -103,37 +114,49 @@ export DISPLAY XAUTHORITY
 TABLETS=("QEMU QEMU USB Tablet" "spice vdagent tablet")
 
 pick_output(){ xrandr --current | awk '/ connected primary/{print $1;exit} / connected/{print $1;exit}'; }
+
 current_mode(){
   local m
   m="$(xrandr | awk '/\*/{print $1;exit}')"   # e.g., 1809x1055
-  if [ -z "$m" ]; then
-    m="$(xrandr | awk -F'current ' 'NR==1{split($2,a,","); gsub(/ /,"",a[1]); print a[1]}')"  # Screen 0: current WxH
+  if [[ -z "$m" ]]; then
+    m="$(xrandr | awk -F'current ' 'NR==1{split($2,a,","); gsub(/ /,"",a[1]); print a[1]}')"
   fi
   echo "$m"
+}
+
+has_evdev_calibration_prop(){
+  local dev="$1"
+  xinput --list-props "$dev" 2>/dev/null | grep -q "Evdev Axis Calibration"
 }
 
 calibrate_evdev_to(){
   local wh="$1" w h
   w="${wh%x*}"; h="${wh#*x}"
+
   for dev in "${TABLETS[@]}"; do
     if xinput --list --name-only | grep -Fxq "$dev"; then
-      log "Calibrate $dev -> ${w}x${h}"
-      xinput --set-prop "$dev" "Evdev Axis Calibration" 0 $((w-1)) 0 $((h-1)) 2>/dev/null || true
-      xinput --set-prop "$dev" "Evdev Axis Inversion" 0 0 2>/dev/null || true
+      if has_evdev_calibration_prop "$dev"; then
+        log "Calibrate $dev -> ${w}x${h}"
+        xinput --set-prop "$dev" "Evdev Axis Calibration" 0 $((w-1)) 0 $((h-1)) 2>/dev/null || true
+        xinput --set-prop "$dev" "Evdev Axis Inversion" 0 0 2>/dev/null || true
+      else
+        log "Device '$dev' found, but no 'Evdev Axis Calibration' prop (likely libinput). Skipping calibration."
+      fi
     fi
   done
 }
 
 apply_once(){
   local out cur
-  out="$(pick_output)"; [ -n "$out" ] || { log "No connected outputs"; return 0; }
+  out="$(pick_output)"
+  [[ -n "$out" ]] || { log "No connected outputs"; return 0; }
 
   # 1) Let SPICE propose size
   xrandr --output "$out" --auto || true
 
-  # 2) Calibrate evdev axes to current screen size
+  # 2) Calibrate (if supported)
   cur="$(current_mode)"
-  [ -n "$cur" ] && calibrate_evdev_to "$cur"
+  [[ -n "$cur" ]] && calibrate_evdev_to "$cur"
 
   # 3) No-op transform (forces Xorg to re-evaluate maps). No flicker.
   xrandr --output "$out" --transform 1,0,0,0,1,0,0,0,1 || true
@@ -146,7 +169,11 @@ apply_once
 last=0
 debounce_ms=300
 now_ms(){ date +%s%3N 2>/dev/null || echo $(( $(date +%s)*1000 )); }
-should_run(){ local n; n=$(now_ms); if (( n-last >= debounce_ms )); then last=$n; return 0; fi; return 1; }
+should_run(){
+  local n; n=$(now_ms)
+  if (( n-last >= debounce_ms )); then last=$n; return 0; fi
+  return 1
+}
 
 log "Listening for RandR changes on ${DISPLAY} ..."
 xev -root -event randr 2>/dev/null | grep --line-buffered 'XRROutputChangeNotifyEvent' | \
@@ -162,7 +189,7 @@ chmod +x "${SCRIPT_FILE}"
 echo "Installing ${SERVICE_FILE} ..."
 cat > "${SERVICE_FILE}" <<EOF
 [Unit]
-Description=x-resize (XFCE/Kali): Xorg RandR auto-resize + evdev calibration (user)
+Description=x-resize (XFCE/Arch): Xorg RandR auto-resize + evdev calibration (user)
 After=graphical-session.target
 PartOf=graphical-session.target
 
