@@ -7,11 +7,11 @@ If you install any Linux system with the XFCE or MATE desktop environment in KVM
 
 `x-resize` automatically adjusts your guest screen resolution when you resize the Virt-Manager window.
 
-This repo provides **three installers**, kept stylistically consistent:
+This repo provides **four installers**, kept stylistically consistent:
 
 - **Kali XFCE**: dynamic resize + **absolute pointer fix** (evdev calibration).
 - **Arch XFCE**: dynamic resize + **absolute pointer fix** (evdev calibration).
-- **Parrot MATE**: simple and fast RandR auto-resize. (only for Parrot 6 with Mate)
+- **Parrot MATE**: simple and fast RandR auto-resize (only for Parrot 6 with MATE).
 - **Generic XFCE/MATE (Xorg)**: portable RandR auto-resize (no evdev tweaks).
 
 ## 🧩 Requirements
@@ -69,7 +69,7 @@ chmod +x setup-x-resize-xfce-arch.sh
 
 🪄 This script:
 
-- Installs (if missing): `xorg-xrandr`, `xorg-xev`, `xorg-xinput`, `libevdev`, `spice-vdagent`, `qemu-guest-agent`
+- Installs (if missing): `xorg-xrandr`, `xorg-xev`, `xorg-xinput`, `xf86-input-evdev`, `spice-vdagent`, `qemu-guest-agent`
 - Creates:
   - `~/.local/bin/x-resize-xfce`
   - `~/.config/systemd/user/x-resize-xfce.service`
@@ -77,7 +77,7 @@ chmod +x setup-x-resize-xfce-arch.sh
 - On each resize:
   - Runs `xrandr --auto`
   - Reads current `WxH`
-  - Sets **Evdev Axis Calibration** (`0..W-1, 0..H-1`) to keep the pointer perfectly aligned
+  - Sets **Evdev Axis Calibration** (`0..W-1, 0..H-1`)
   - Applies a no-op transform to force Xorg to re-evaluate maps
 - Enables a **systemd user service** (autostarts after login)
 
@@ -128,9 +128,9 @@ chmod +x setup-x-resize-xfce.sh
 After installation:
 
 ```bash
-systemctl --user status x-resize-xfce         # Kali XFCE variant
-systemctl --user status mate-x-autoresize     # Parrot MATE variant
-systemctl --user status x-resize              # Generic variant
+systemctl --user status x-resize-xfce         # Kali XFCE / Arch XFCE
+systemctl --user status mate-x-autoresize     # Parrot MATE
+systemctl --user status x-resize              # Generic
 ```
 
 Expected output:
@@ -199,7 +199,7 @@ On resize you should see e.g.:
 
 5. **Pointer offset on Kali XFCE** (odd modes like `1809x1055`):
 
-   - Use the **Kali XFCE** installer (evdev). It calibrates:
+   - Use the Kali XFCE or Arch XFCE installer (evdev). It calibrates:
      `Evdev Axis Calibration = 0..W-1, 0..H-1` after each resize.
 
    - Verify props after a resize:
@@ -273,6 +273,7 @@ The solution is based on modifying and adapting what other people smarter than m
 - https://gitlab.com/apteryks/x-resize
 - https://github.com/seife/spice-autorandr
 - https://logos-red.com/blog/how-to-fix-kali-linux-qemu-resize-issue/
+- https://github.com/flexbusterman (Arch version)
 
 # 🔎 Tested
 
@@ -282,5 +283,6 @@ The solution is based on modifying and adapting what other people smarter than m
 | Kali Linux   | 2025.3   | 6.12.x | XFCE 4.20           |
 | Whonix       | 17.4.4.6 | 6.12.x | XFCE 4.20           |
 | Debian       | 13.1     | 6.12.x | XFCE 4.20           |
+| Arch Linux      | rolling    | 6.12.x | XFCE 4.20           |
 
 *Since version 7, Parrot has been using KDE, so scaling works there without these scripts.
