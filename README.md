@@ -285,4 +285,4 @@ The solution is based on modifying and adapting what other people smarter than m
 | Debian       | 13.1     | 6.12.x | XFCE 4.20           |
 | Arch Linux      | rolling    | 6.12.x | XFCE 4.20           |
 
-*Since version 7, Parrot has been using KDE, so scaling works there without these scripts.
+*Since version 7, Parrot has been using KDE, so scaling works there without additional script.
