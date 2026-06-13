@@ -11,7 +11,7 @@ This repo provides **four installers**, kept stylistically consistent:
 
 - **Kali XFCE**: dynamic resize + **absolute pointer fix** (evdev calibration).
 - **Arch XFCE**: dynamic resize + **absolute pointer fix** (evdev calibration).
-- **Parrot MATE**: simple and fast RandR auto-resize (only for Parrot 6 with MATE).
+- **Parrot MATE**: simple and fast RandR auto-resize (only for Parrot with MATE).
 - **Generic XFCE/MATE (Xorg)**: portable RandR auto-resize (no evdev tweaks).
 
 ## 🧩 Requirements
@@ -83,7 +83,7 @@ chmod +x setup-x-resize-xfce-arch.sh
 
 > **After install**: log out/in (or reboot) so Xorg loads the evdev InputClass.
 
-### 🦜 Parrot OS <= 6 (MATE)
+### 🦜 Parrot OS (MATE)
 
 Run as **your normal user**:
 
@@ -279,10 +279,9 @@ The solution is based on modifying and adapting what other people smarter than m
 
 | Distribution | Version  | Kernel | Desktop environment |
 | ------------ | -------- | ------ | ------------------- |
-| Parrot OS*    | 6.4      | 6.12.x | MATE 1.26           |
-| Kali Linux   | 2025.3   | 6.12.x | XFCE 4.20           |
-| Whonix       | 17.4.4.6 | 6.12.x | XFCE 4.20           |
-| Debian       | 13.1     | 6.12.x | XFCE 4.20           |
-| Arch Linux      | rolling    | 6.12.x | XFCE 4.20           |
+| Parrot OS    | 7.2      | >= 6.12.x | MATE >= 1.26     |
+| Kali Linux   | 2026.1   | >= 6.12.x | XFCE >= 4.20     |
+| Whonix       | 18.1.4.2 | >= 6.12.x | XFCE >= 4.20     |
+| Debian       | 13.5     | >= 6.12.x | XFCE 4>= .20     |
+| Arch Linux   | rolling  | 6.12.x    | XFCE 4.20        |
 
-*Since version 7, Parrot has been using KDE, so scaling works there without additional script.
