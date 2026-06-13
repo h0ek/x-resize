@@ -282,6 +282,6 @@ The solution is based on modifying and adapting what other people smarter than m
 | Parrot OS    | 7.2      | >= 6.12.x | MATE >= 1.26        |
 | Kali Linux   | 2026.1   | >= 6.12.x | XFCE >= 4.20        |
 | Whonix       | 18.1.4.2 | >= 6.12.x | XFCE >= 4.20        |
-| Debian       | 13.5     | >= 6.12.x | XFCE 4>= .20        |
-| Arch Linux   | rolling  | >= 6.12.x | XFCE 4.20           |
+| Debian       | 13.5     | >= 6.12.x | XFCE >= 4.20        |
+| Arch Linux   | rolling  | >= 6.12.x | XFCE >= 4.20        |
 
