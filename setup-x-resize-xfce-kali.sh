@@ -47,6 +47,7 @@ missing=()
 command -v xrandr >/dev/null 2>&1 || missing+=("x11-xserver-utils")
 command -v xev     >/dev/null 2>&1 || missing+=("x11-utils")
 command -v xinput  >/dev/null 2>&1 || missing+=("xinput")
+command -v xfconf-query >/dev/null 2>&1 || missing+=("xfconf")
 dpkg -s xserver-xorg-input-evdev >/dev/null 2>&1 || missing+=("xserver-xorg-input-evdev")
 if (( ${#missing[@]} )); then
   echo "Installing required packages: ${missing[*]} ..."
@@ -83,7 +84,7 @@ cat > "${SCRIPT_FILE}" <<'EOF'
 #   1) xrandr --auto on active output
 #   2) read current WxH
 #   3) set "Evdev Axis Calibration" = 0..W-1, 0..H-1 on tablets
-#   4) apply a no-op transform to force Xorg to re-evaluate maps
+#   4) reapply the current XFCE display scale transform
 
 set -euo pipefail
 log(){ logger -t x-resize-xfce -- "$*"; echo "[x-resize-xfce] $*"; }
@@ -122,9 +123,23 @@ calibrate_evdev_to(){
   done
 }
 
+current_scale(){
+  local out="$1" scale
+  scale="$(xfconf-query -c displays -p "/Default/${out}/Scale" 2>/dev/null || true)"
+
+  if [[ ! "$scale" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+    scale="1.000000"
+  fi
+
+  echo "$scale"
+}
+
 apply_once(){
-  local out cur
-  out="$(pick_output)"; [ -n "$out" ] || { log "No connected outputs"; return 0; }
+  local out cur scale
+  out="$(pick_output)"
+  [ -n "$out" ] || { log "No connected outputs"; return 0; }
+
+  scale="$(current_scale "$out")"
 
   # 1) Let SPICE propose size
   xrandr --output "$out" --auto || true
@@ -133,8 +148,9 @@ apply_once(){
   cur="$(current_mode)"
   [ -n "$cur" ] && calibrate_evdev_to "$cur"
 
-  # 3) No-op transform (forces Xorg to re-evaluate maps). No flicker.
-  xrandr --output "$out" --transform 1,0,0,0,1,0,0,0,1 || true
+  # 3) Preserve the current XFCE display scale
+  log "Apply XFCE scale ${scale} on ${out}"
+  xrandr --output "$out" --transform "$scale,0,0,0,$scale,0,0,0,1" || true
 }
 
 # Initial pass
