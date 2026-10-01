@@ -303,7 +303,6 @@ WIDE_CAP_W=2560
 WIDE_CAP_H=1440
 NARROW_RATIO_MAX=1.67
 ASPECT_TOLERANCE=0.08
-DEBOUNCE_MS=350
 
 if [[ -r "$CONFIG_FILE" ]]; then
     . "$CONFIG_FILE"
@@ -471,9 +470,6 @@ apply_once() {
 
     scale="$(current_scale "$out")"
 
-    xrandr --output "$out" --auto || true
-    sleep 0.05
-
     desired="$(current_mode "$out")"
     if [[ -z "$desired" ]]; then
         log "Could not determine current mode for ${out}."
@@ -507,7 +503,9 @@ apply_once() {
     [[ -n "$final" ]] || final="$selected"
 
     if [[ "$PRESERVE_XFCE_SCALE" == "1" ]] && command -v xfconf-query >/dev/null 2>&1; then
-        xrandr --output "$out" --transform "$scale,0,0,0,$scale,0,0,0,1" || true
+        if awk -v s="$scale" 'BEGIN { exit !(s != 1) }'; then
+            xrandr --output "$out" --transform "$scale,0,0,0,$scale,0,0,0,1" || true
+        fi
     fi
 
     calibrate_evdev_to "$final"
@@ -516,28 +514,11 @@ apply_once() {
 
 apply_once
 
-last=0
-now_ms() {
-    date +%s%3N 2>/dev/null || echo $(( $(date +%s) * 1000 ))
-}
-
-should_run() {
-    local now
-    now="$(now_ms)"
-    if (( now - last >= DEBOUNCE_MS )); then
-        last="$now"
-        return 0
-    fi
-    return 1
-}
-
-log "Listening for RandR events on ${DISPLAY}."
+log "Listening for RandR screen/output changes on ${DISPLAY}."
 xev -root -event randr 2>/dev/null | \
-    grep --line-buffered 'XRROutputChangeNotifyEvent' | \
+    grep --line-buffered -E 'RRScreenChangeNotify event|XRROutputChangeNotifyEvent' | \
     while read -r _; do
-        if should_run; then
-            apply_once
-        fi
+        apply_once
     done
 RUNTIME_EOF
     chmod +x "$SCRIPT_FILE"
@@ -557,7 +538,6 @@ WIDE_CAP_W=2560
 WIDE_CAP_H=1440
 NARROW_RATIO_MAX=1.67
 ASPECT_TOLERANCE=0.08
-DEBOUNCE_MS=350
 EOF
 
     {

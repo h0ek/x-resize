@@ -286,6 +286,10 @@ The uninstaller removes the common service/runtime/configuration, restores a bac
 
 The old approach effectively followed `xrandr --auto` all the way up. That works well on ordinary displays, but a HiDPI host can expose guest surfaces such as `3200x2000`, `3840x2160` or `3840x2400`. With XFCE/MATE at display scale `1.0`, the guest UI can then become ridiculously tiny. Fractional scaling inside XFCE may make the UI larger, but on some SPICE absolute-pointer setups it can also cause pointer offset, a duplicated cursor or stutter.
 
+The unified runtime does **not** force `xrandr --auto` anymore. SPICE/virt-viewer is allowed to change the active RandR mode first, then `x-resize` observes the current mode and only replaces it when it exceeds the adaptive cap. This avoids a feedback race where `--auto` could briefly re-select a huge HiDPI mode after `x-resize` had already capped it.
+
+The runtime reacts to both RandR screen-change and output-change notifications. It deliberately does not discard fast consecutive events with a time debounce, because SPICE can send a second mode change immediately after fullscreen/windowed transitions. Every resulting decision is idempotent: if the current mode is already acceptable, no mode change is made.
+
 The unified runtime keeps automatic resize but adds an adaptive sanity cap:
 
 - normal and smaller SPICE modes are kept unchanged
