@@ -332,6 +332,8 @@ fi
 export DISPLAY XAUTHORITY
 
 TABLETS=("QEMU QEMU USB Tablet" "spice vdagent tablet")
+LAST_STABLE_STATE=""
+LAST_CALIBRATED_MODE=""
 
 pick_output() {
     xrandr --current | awk '/ connected primary/{print $1;exit} / connected/{print $1;exit}'
@@ -392,9 +394,10 @@ current_scale() {
 }
 
 calibrate_evdev_to() {
-    local wh="$1" w h dev
+    local wh="$1" w h dev calibrated=0
     [[ "$CALIBRATE_EVDEV" == "1" ]] || return 0
     command -v xinput >/dev/null 2>&1 || return 0
+    [[ "$wh" != "$LAST_CALIBRATED_MODE" ]] || return 0
 
     w="${wh%x*}"
     h="${wh#*x}"
@@ -405,9 +408,14 @@ calibrate_evdev_to() {
                 log "Calibrate ${dev} -> ${w}x${h}"
                 xinput --set-prop "$dev" "Evdev Axis Calibration" 0 $((w - 1)) 0 $((h - 1)) 2>/dev/null || true
                 xinput --set-prop "$dev" "Evdev Axis Inversion" 0 0 2>/dev/null || true
+                calibrated=1
             fi
         fi
     done
+
+    if (( calibrated == 1 )); then
+        LAST_CALIBRATED_MODE="$wh"
+    fi
 }
 
 select_capped_mode() {
@@ -476,7 +484,7 @@ cap_for_mode() {
 }
 
 apply_once() {
-    local out scale desired current dw dh cap_w cap_h selected final
+    local out scale desired current dw dh cap_w cap_h selected final stable_state
 
     out="$(pick_output)"
     if [[ -z "$out" ]]; then
@@ -505,6 +513,11 @@ apply_once() {
         fi
     fi
 
+    stable_state="${out}|${desired}|${current}|${selected}|${scale}"
+    if [[ "$selected" == "$current" && "$stable_state" == "$LAST_STABLE_STATE" ]]; then
+        return 0
+    fi
+
     if [[ "$selected" != "$current" ]]; then
         if mode_exists "$out" "$selected"; then
             if ! xrandr --output "$out" --mode "$selected"; then
@@ -528,16 +541,18 @@ apply_once() {
 
     calibrate_evdev_to "$final"
     log "request=${desired} current=${current} cap=${cap_w}x${cap_h} selected=${final} output=${out}"
+    LAST_STABLE_STATE="${out}|${desired}|${final}|${final}|${scale}"
 }
 
 apply_once
 
 log "Listening for RandR screen/output changes on ${DISPLAY}."
-xev -root -event randr 2>/dev/null | \
-    grep --line-buffered -E 'RRScreenChangeNotify event|XRROutputChangeNotifyEvent' | \
-    while read -r _; do
-        apply_once
-    done
+while read -r _; do
+    apply_once
+done < <(
+    xev -root -event randr 2>/dev/null |
+        grep --line-buffered -E 'RRScreenChangeNotify event|XRROutputChangeNotifyEvent'
+)
 RUNTIME_EOF
     chmod +x "$SCRIPT_FILE"
 }

@@ -290,6 +290,8 @@ The unified runtime does **not** force `xrandr --auto` anymore. Instead it reads
 
 The runtime reacts to both RandR screen-change and output-change notifications. It deliberately does not discard fast consecutive events with a time debounce, because SPICE can update the preferred mode immediately after fullscreen/windowed transitions. Re-processing an event is safe: when the capped target is already the active mode, no additional RandR mode change is performed.
 
+To avoid repeated work from duplicate RandR notifications, identical stable states are deduplicated. Corrective events are never suppressed: if SPICE changes the active mode away from the capped target, `x-resize` processes it immediately. On Kali/Arch, evdev pointer calibration is also repeated only when the final guest resolution actually changes.
+
 The unified runtime keeps automatic resize but adds an adaptive sanity cap:
 
 - normal and smaller SPICE modes are kept unchanged
