@@ -346,6 +346,22 @@ current_mode() {
     '
 }
 
+requested_mode() {
+    local out="$1" requested
+
+    requested="$(xrandr --current | awk -v out="$out" '''
+        $1 == out && $2 == "connected" { found=1; next }
+        found && $0 !~ /^[[:space:]]/ { exit }
+        found && $1 ~ /^[0-9]+x[0-9]+$/ && $0 ~ /\+/ { print $1; exit }
+    ''')"
+
+    if [[ -n "$requested" ]]; then
+        printf '%s\n' "$requested"
+    else
+        current_mode "$out"
+    fi
+}
+
 list_modes() {
     local out="$1"
     xrandr --current | awk -v out="$out" '
@@ -460,7 +476,7 @@ cap_for_mode() {
 }
 
 apply_once() {
-    local out scale desired dw dh cap_w cap_h selected final
+    local out scale desired current dw dh cap_w cap_h selected final
 
     out="$(pick_output)"
     if [[ -z "$out" ]]; then
@@ -470,11 +486,13 @@ apply_once() {
 
     scale="$(current_scale "$out")"
 
-    desired="$(current_mode "$out")"
+    desired="$(requested_mode "$out")"
+    current="$(current_mode "$out")"
     if [[ -z "$desired" ]]; then
-        log "Could not determine current mode for ${out}."
+        log "Could not determine requested mode for ${out}."
         return 0
     fi
+    [[ -n "$current" ]] || current="$desired"
 
     IFS=x read -r dw dh <<< "$desired"
     read -r cap_w cap_h < <(cap_for_mode "$desired")
@@ -483,19 +501,19 @@ apply_once() {
     if (( dw > cap_w || dh > cap_h )); then
         selected="$(select_capped_mode "$out" "$desired" "$cap_w" "$cap_h")"
         if [[ -z "$selected" ]]; then
-            selected="$desired"
+            selected="$current"
         fi
     fi
 
-    if [[ "$selected" != "$desired" ]]; then
+    if [[ "$selected" != "$current" ]]; then
         if mode_exists "$out" "$selected"; then
             if ! xrandr --output "$out" --mode "$selected"; then
-                log "Mode ${selected} changed during resize; keeping ${desired}."
-                selected="$desired"
+                log "Mode ${selected} changed during resize; keeping ${current}."
+                selected="$current"
             fi
         else
-            log "Mode ${selected} disappeared during resize; keeping ${desired}."
-            selected="$desired"
+            log "Mode ${selected} disappeared during resize; keeping ${current}."
+            selected="$current"
         fi
     fi
 
@@ -503,13 +521,13 @@ apply_once() {
     [[ -n "$final" ]] || final="$selected"
 
     if [[ "$PRESERVE_XFCE_SCALE" == "1" ]] && command -v xfconf-query >/dev/null 2>&1; then
-        if awk -v s="$scale" 'BEGIN { exit !(s != 1) }'; then
+        if awk -v s="$scale" '''BEGIN { exit !(s != 1) }'''; then
             xrandr --output "$out" --transform "$scale,0,0,0,$scale,0,0,0,1" || true
         fi
     fi
 
     calibrate_evdev_to "$final"
-    log "request=${desired} cap=${cap_w}x${cap_h} selected=${final} output=${out}"
+    log "request=${desired} current=${current} cap=${cap_w}x${cap_h} selected=${final} output=${out}"
 }
 
 apply_once

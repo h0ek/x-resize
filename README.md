@@ -174,10 +174,10 @@ journalctl --user -u x-resize -f
 On resize you should see e.g.:
 
 ```text
-[x-resize] request=3200x2000 cap=1920x1440 selected=1920x1200 output=Virtual-1
+[x-resize] request=3200x2000 current=2048x1152 cap=1920x1440 selected=1920x1200 output=Virtual-1
 ```
 
-On Kali/Arch you may additionally see pointer calibration entries.
+`request` is the SPICE-preferred RandR mode (`+`), while `current` is the mode currently active in the guest (`*`). On Kali/Arch you may additionally see pointer calibration entries.
 
 ---
 
@@ -286,9 +286,9 @@ The uninstaller removes the common service/runtime/configuration, restores a bac
 
 The old approach effectively followed `xrandr --auto` all the way up. That works well on ordinary displays, but a HiDPI host can expose guest surfaces such as `3200x2000`, `3840x2160` or `3840x2400`. With XFCE/MATE at display scale `1.0`, the guest UI can then become ridiculously tiny. Fractional scaling inside XFCE may make the UI larger, but on some SPICE absolute-pointer setups it can also cause pointer offset, a duplicated cursor or stutter.
 
-The unified runtime does **not** force `xrandr --auto` anymore. SPICE/virt-viewer is allowed to change the active RandR mode first, then `x-resize` observes the current mode and only replaces it when it exceeds the adaptive cap. This avoids a feedback race where `--auto` could briefly re-select a huge HiDPI mode after `x-resize` had already capped it.
+The unified runtime does **not** force `xrandr --auto` anymore. Instead it reads the SPICE-preferred/requested RandR mode marked with `+`, compares it with the currently active mode marked with `*`, applies the adaptive cap to the requested size, and changes the active mode only when needed. This keeps automatic window/fullscreen resizing while preventing a huge HiDPI request from becoming the final guest resolution.
 
-The runtime reacts to both RandR screen-change and output-change notifications. It deliberately does not discard fast consecutive events with a time debounce, because SPICE can send a second mode change immediately after fullscreen/windowed transitions. Every resulting decision is idempotent: if the current mode is already acceptable, no mode change is made.
+The runtime reacts to both RandR screen-change and output-change notifications. It deliberately does not discard fast consecutive events with a time debounce, because SPICE can update the preferred mode immediately after fullscreen/windowed transitions. Re-processing an event is safe: when the capped target is already the active mode, no additional RandR mode change is performed.
 
 The unified runtime keeps automatic resize but adds an adaptive sanity cap:
 
