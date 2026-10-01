@@ -7,12 +7,26 @@ If you install any Linux system with the XFCE or MATE desktop environment in KVM
 
 `x-resize` automatically adjusts your guest screen resolution when you resize the Virt-Manager window.
 
-This repo provides **four installers**, kept stylistically consistent:
+The repo now uses **one installer and one service** with four profiles:
 
-- **Kali XFCE**: dynamic resize + **absolute pointer fix** (evdev calibration).
-- **Arch XFCE**: dynamic resize + **absolute pointer fix** (evdev calibration).
-- **Parrot MATE**: simple and fast RandR auto-resize (only for Parrot with MATE).
-- **Generic XFCE/MATE (Xorg)**: portable RandR auto-resize (no evdev tweaks).
+- **Kali XFCE**: dynamic resize + **adaptive HiDPI resolution cap** + **absolute pointer fix** (evdev calibration).
+- **Arch XFCE**: dynamic resize + **adaptive HiDPI resolution cap** + **absolute pointer fix** (evdev calibration).
+- **Parrot MATE / MATE**: dynamic resize + **adaptive HiDPI resolution cap**.
+- **Generic XFCE/MATE (Xorg)**: portable dynamic resize + **adaptive HiDPI resolution cap** (no evdev tweaks).
+
+On normal window sizes, `x-resize` follows the SPICE-requested resolution as before. On very large HiDPI surfaces it limits the guest to a practical resolution instead of letting XFCE/MATE become microscopic.
+
+Typical examples:
+
+```text
+3200x2000 -> 1920x1200
+3840x2400 -> 1920x1200
+3840x2160 -> up to 2560x1440
+2560x1440 -> 2560x1440
+smaller window -> matching smaller SPICE mode
+```
+
+The cap is based on the current SPICE guest surface, not hard-coded host monitor names, so the same VM can move between a HiDPI laptop panel and external displays without separate profiles or desktop shortcuts.
 
 ## 🧩 Requirements
 
@@ -25,112 +39,118 @@ Make sure your **VM guest** (Kali / Parrot / Debian / Ubuntu / etc.) has:
   ✔️ *View → Auto resize VM with window* = **ON**
   ✔️ *View → Scale Display* = **ON**
 
-> Works on **Xorg**. The scripts exit cleanly if a desktop ever switches to Wayland.
+> Works on **Xorg**. The runtime exits cleanly if a desktop ever switches to Wayland.
+
+> On XFCE, display scale `1.0` is recommended. The adaptive HiDPI cap is intended to avoid fractional XFCE scaling just to make the guest usable on a high-resolution host display.
 
 ## ⚙️ Install (choose your desktop)
 
+Run the installer as **your normal user**, not root:
+
+```bash
+wget -O x-resizer.sh https://raw.githubusercontent.com/h0ek/x-resize/refs/heads/main/x-resizer.sh
+chmod +x x-resizer.sh
+./x-resizer.sh
+```
+
+Without parameters, the installer detects your OS/desktop, recommends a profile and shows a small menu. If you prefer no questions:
+
+```bash
+./x-resizer.sh auto
+```
+
+You can also choose a profile explicitly.
+
 ### 🐉 Kali Linux (XFCE) with evdev calibration
 
-Recommended for 2025 builds.
-
-Run the following as **your normal user**:
-
 ```bash
-wget -O setup-x-resize-xfce-kali.sh https://raw.githubusercontent.com/h0ek/x-resize/refs/heads/main/setup-x-resize-xfce-kali.sh
-chmod +x setup-x-resize-xfce-kali.sh
-./setup-x-resize-xfce-kali.sh
+./x-resizer.sh kali
 ```
 
-🪄 This script:
+🪄 This profile:
 
-- Installs (if missing): `x11-xserver-utils`, `x11-utils`, `xinput`, `xserver-xorg-input-evdev`
-- Creates:
-  - `~/.local/bin/x-resize-xfce`
-  - `~/.config/systemd/user/x-resize-xfce.service`
-  - **`/etc/X11/xorg.conf.d/70-tablet-evdev.conf`** (maps QEMU/SPICE tablets to **evdev** in **Absolute** mode)
-- On each resize:
-  - Runs `xrandr --auto`
-  - Reads current `WxH`
-  - Sets **Evdev Axis Calibration** (`0..W-1, 0..H-1`) to keep the pointer perfectly aligned
-  - Applies a no-op transform to force Xorg to re-evaluate maps
-- Enables a **systemd user service** (autostarts after login)
-
-> **After install**: log out/in (or reboot) so Xorg loads the evdev InputClass.
-
-### 🐧 Arch Linux (XFCE) with evdev calibration
-
-Run the following as **your normal user**:
-
-```bash
-wget -O setup-x-resize-xfce-arch.sh https://raw.githubusercontent.com/h0ek/x-resize/refs/heads/main/setup-x-resize-xfce-arch.sh
-chmod +x setup-x-resize-xfce-arch.sh
-./setup-x-resize-xfce-arch.sh
-```
-
-🪄 This script:
-
-- Installs (if missing): `xorg-xrandr`, `xorg-xev`, `xorg-xinput`, `xf86-input-evdev`, `spice-vdagent`, `qemu-guest-agent`
-- Creates:
-  - `~/.local/bin/x-resize-xfce`
-  - `~/.config/systemd/user/x-resize-xfce.service`
-  - **`/etc/X11/xorg.conf.d/70-tablet-evdev.conf`** (maps QEMU/SPICE tablets to **evdev** in **Absolute** mode)
-- On each resize:
-  - Runs `xrandr --auto`
-  - Reads current `WxH`
-  - Sets **Evdev Axis Calibration** (`0..W-1, 0..H-1`)
-  - Applies a no-op transform to force Xorg to re-evaluate maps
-- Enables a **systemd user service** (autostarts after login)
-
-> **After install**: log out/in (or reboot) so Xorg loads the evdev InputClass.
-
-### 🦜 Parrot OS (MATE)
-
-Run as **your normal user**:
-
-```bash
-wget -O setup-x-resize-mate.sh https://raw.githubusercontent.com/h0ek/x-resize/refs/heads/main/setup-x-resize-mate.sh
-chmod +x setup-x-resize-mate.sh
-./setup-x-resize-mate.sh
-```
-
-🪄 This script:
-
-- Installs (if missing): `x11-xserver-utils`, `x11-utils`
-- Creates:
-  - `~/.local/bin/mate-x-autoresize`
-  - `~/.config/systemd/user/mate-x-autoresize.service`
-- On each resize: `xrandr --auto` on the active output
-- Exits cleanly on Wayland
-- Enables a **systemd user service**
-
-### 🐧 Generic XFCE / MATE on Xorg (Debian/Ubuntu/etc.)
-
-Run as **your normal user**:
-
-```bash
-wget -O setup-x-resize-xfce.sh https://raw.githubusercontent.com/h0ek/x-resize/refs/heads/main/setup-x-resize-xfce.sh
-chmod +x setup-x-resize-xfce.sh
-./setup-x-resize-xfce.sh
-```
-
-🪄 This script:
-
-- Installs (if missing): `x11-xserver-utils`, `x11-utils`
+- Installs (if missing): `x11-xserver-utils`, `x11-utils`, `xinput`, `xfconf`, `xserver-xorg-input-evdev`, `spice-vdagent` and `qemu-guest-agent` on KVM guests
 - Creates:
   - `~/.local/bin/x-resize`
   - `~/.config/systemd/user/x-resize.service`
-- On each resize: `xrandr --auto` on the active output
+  - `~/.config/x-resize/config`
+  - **`/etc/X11/xorg.conf.d/70-tablet-evdev.conf`** (maps QEMU/SPICE tablets to **evdev** in **Absolute** mode)
+- On each resize:
+  - Reads the SPICE/RandR requested mode
+  - Keeps normal resolutions unchanged
+  - Caps very large HiDPI modes to a practical resolution
+  - Reads the final `WxH`
+  - Sets **Evdev Axis Calibration** (`0..W-1, 0..H-1`) to keep the pointer aligned
+- Enables the common **systemd user service**
+
+> **After first install**: log out/in (or reboot) so Xorg loads the evdev InputClass.
+
+### 🐧 Arch Linux (XFCE) with evdev calibration
+
+```bash
+./x-resizer.sh arch
+```
+
+🪄 This profile:
+
+- Installs (if missing): `xorg-xrandr`, `xorg-xev`, `xorg-xinput`, `xfconf`, `xf86-input-evdev`, `spice-vdagent` and `qemu-guest-agent` on KVM guests
+- Creates the same common runtime, config and `x-resize.service`
+- Creates **`/etc/X11/xorg.conf.d/70-tablet-evdev.conf`**
+- Uses the same adaptive resize logic as the other profiles
+- Recalibrates **Evdev Axis Calibration** after the final mode is selected
+
+> **After first install**: log out/in (or reboot) so Xorg loads the evdev InputClass.
+
+### 🦜 Parrot OS (MATE) / MATE
+
+```bash
+./x-resizer.sh mate
+```
+
+🪄 This profile:
+
+- Installs the required RandR/SPICE utilities if missing
+- Creates:
+  - `~/.local/bin/x-resize`
+  - `~/.config/systemd/user/x-resize.service`
+  - `~/.config/x-resize/config`
+- Uses dynamic RandR resize with the adaptive HiDPI cap
+- Does not change the input driver
+- Exits cleanly on Wayland
+
+### 🐧 Generic XFCE / MATE on Xorg (Debian/Ubuntu/etc.)
+
+```bash
+./x-resizer.sh generic
+```
+
+Aliases such as `debian` and `debian-xfce` are also accepted.
+
+🪄 This profile:
+
+- Installs the required RandR/SPICE utilities if missing
+- Creates:
+  - `~/.local/bin/x-resize`
+  - `~/.config/systemd/user/x-resize.service`
+  - `~/.config/x-resize/config`
+- Uses dynamic RandR resize with the adaptive HiDPI cap
 - No device reconfiguration (portable, minimal)
-- Enables a **systemd user service**
+- Enables the common **systemd user service**
+
+### 🤖 Automatic detection
+
+```bash
+./x-resizer.sh auto
+```
+
+The installer uses `/etc/os-release` and the current desktop environment. Kali XFCE and Arch-family XFCE select their evdev profiles, MATE selects the MATE profile, and other supported XFCE/MATE guests use the generic profile.
 
 ## 🔍 How to check that it works
 
 After installation:
 
 ```bash
-systemctl --user status x-resize-xfce         # Kali XFCE / Arch XFCE
-systemctl --user status mate-x-autoresize     # Parrot MATE
-systemctl --user status x-resize              # Generic
+systemctl --user status x-resize
 ```
 
 Expected output:
@@ -139,36 +159,40 @@ Expected output:
 Active: active (running)
 ```
 
+Or use the installer itself:
+
+```bash
+./x-resizer.sh status
+```
+
 Live logs:
 
 ```bash
-journalctl --user -u x-resize-xfce -f
-journalctl --user -u mate-x-autoresize -f
 journalctl --user -u x-resize -f
 ```
 
 On resize you should see e.g.:
 
-```bash
-[x-resize-xfce] xrandr --output Virtual-1 --auto
-[x-resize-xfce] Calibrate QEMU QEMU USB Tablet -> 1809x1055
+```text
+[x-resize] request=3200x2000 cap=1920x1440 selected=1920x1200 output=Virtual-1
 ```
+
+On Kali/Arch you may additionally see pointer calibration entries.
 
 ---
 
 ## 📜 What exactly is created
 
-| Variant     | File / Package                                            | Purpose                                                |
-| ----------- | --------------------------------------------------------- | ------------------------------------------------------ |
-| Kali XFCE   | `~/.local/bin/x-resize-xfce`                              | RandR listener + **evdev axis calibration** per resize |
-| Kali XFCE   | `~/.config/systemd/user/x-resize-xfce.service`            | systemd user unit                                      |
-| Kali XFCE   | `/etc/X11/xorg.conf.d/70-tablet-evdev.conf`               | Force SPICE/QEMU tablets to **evdev** (Absolute)       |
-| Kali XFCE   | `xserver-xorg-input-evdev`                                | Required to expose **Evdev Axis Calibration**          |
-| Parrot MATE | `~/.local/bin/mate-x-autoresize`                          | RandR listener (`xrandr --auto`)                       |
-| Parrot MATE | `~/.config/systemd/user/mate-x-autoresize.service`        | systemd user unit                                      |
-| Generic     | `~/.local/bin/x-resize`                                   | RandR listener (`xrandr --auto`)                       |
-| Generic     | `~/.config/systemd/user/x-resize.service`                 | systemd user unit                                      |
-| All         | `x11-xserver-utils`, `x11-utils`, `xinput` (Kali variant) | Installed if missing                                   |
+| Variant | File / Package | Purpose |
+| ------- | -------------- | ------- |
+| All | `~/.local/bin/x-resize` | Common RandR listener + adaptive HiDPI mode selection |
+| All | `~/.config/systemd/user/x-resize.service` | Common systemd user unit |
+| All | `~/.config/x-resize/config` | Installed profile and resize settings |
+| Kali / Arch XFCE | `/etc/X11/xorg.conf.d/70-tablet-evdev.conf` | Force supported SPICE/QEMU tablets to **evdev** (Absolute) |
+| Kali XFCE | `xserver-xorg-input-evdev` | Required to expose **Evdev Axis Calibration** |
+| Arch XFCE | `xf86-input-evdev` | Required to expose **Evdev Axis Calibration** |
+
+If an unrelated `/etc/X11/xorg.conf.d/70-tablet-evdev.conf` already exists, the installer backs it up before replacing it and restores it during uninstall.
 
 ## 🧠 Troubleshooting
 
@@ -190,76 +214,105 @@ On resize you should see e.g.:
    ls -l /dev/virtio-ports | grep com.redhat.spice.0
    ```
 
-4. Manual test:
+4. Watch what `x-resize` decides while resizing the window:
 
    ```bash
-   OUT="$(xrandr | awk '/ connected primary/{print $1;exit} / connected/{print $1;exit}')"
-   xrandr --output "$OUT" --auto
+   journalctl --user -u x-resize -f
    ```
 
-5. **Pointer offset on Kali XFCE** (odd modes like `1809x1055`):
+5. Check the current RandR state:
 
-   - Use the Kali XFCE or Arch XFCE installer (evdev). It calibrates:
-     `Evdev Axis Calibration = 0..W-1, 0..H-1` after each resize.
+   ```bash
+   xrandr --current
+   ```
+
+6. **Pointer offset on Kali/Arch XFCE**:
+
+   - Use the `kali` or `arch` profile. It calibrates `Evdev Axis Calibration = 0..W-1, 0..H-1` after the final resize.
 
    - Verify props after a resize:
 
      ```bash
      for d in "QEMU QEMU USB Tablet" "spice vdagent tablet"; do
-       xinput --list-props "$d" | grep -E "Evdev Axis Calibration|Evdev Axis Inversion"
+       xinput --list-props "$d" 2>/dev/null | grep -E "Evdev Axis Calibration|Evdev Axis Inversion"
      done
      ```
+
+7. See the installed profile and service state:
+
+   ```bash
+   ./x-resizer.sh status
+   ```
 
 ## 🧰 Service management
 
 Check service status:
 
 ```bash
-systemctl --user status x-resize-xfce
-systemctl --user status mate-x-autoresize
 systemctl --user status x-resize
 ```
 
 Restart:
 
 ```bash
-systemctl --user restart x-resize-xfce
-systemctl --user restart mate-x-autoresize
 systemctl --user restart x-resize
 ```
 
 Stop:
 
 ```bash
-systemctl --user stop x-resize-xfce
-systemctl --user stop mate-x-autoresize
 systemctl --user stop x-resize
 ```
 
-Disable (uninstall):
+Live logs:
 
 ```bash
-# Kali XFCE
-systemctl --user disable --now x-resize-xfce
-rm -f ~/.config/systemd/user/x-resize-xfce.service ~/.local/bin/x-resize-xfce
-systemctl --user daemon-reload
-
-# Parrot MATE
-systemctl --user disable --now mate-x-autoresize
-rm -f ~/.config/systemd/user/mate-x-autoresize.service ~/.local/bin/mate-x-autoresize
-systemctl --user daemon-reload
-
-# Generic
-systemctl --user disable --now x-resize
-rm -f ~/.config/systemd/user/x-resize.service ~/.local/bin/x-resize
-systemctl --user daemon-reload
+journalctl --user -u x-resize -f
 ```
 
-> The Kali variant also installs `/etc/X11/xorg.conf.d/70-tablet-evdev.conf`. Remove it only if you know you won’t need evdev calibration anymore:
->
-> ```bash
-> sudo rm -f /etc/X11/xorg.conf.d/70-tablet-evdev.conf
-> ```
+Uninstall everything managed by x-resize:
+
+```bash
+./x-resizer.sh uninstall
+```
+
+The uninstaller removes the common service/runtime/configuration, restores a backed-up evdev InputClass when applicable, and cleans legacy x-resize service/script names from older releases. Packages installed as dependencies are intentionally left installed because they may be used by SPICE or other desktop software.
+
+> The new installer also recognizes the old system-wide installation that used `/etc/systemd/system/x-resize.service` and `/usr/local/bin/x-resize`, so upgrading from an old build does not require remembering which historical installer you used.
+
+## 🖼️ How adaptive HiDPI resizing works
+
+`x-resize` runs **inside the VM guest** and reacts to the resolution that Virt-Manager/SPICE exposes through RandR. It does not hard-code your host monitor name, laptop model or dock.
+
+The old approach effectively followed `xrandr --auto` all the way up. That works well on ordinary displays, but a HiDPI host can expose guest surfaces such as `3200x2000`, `3840x2160` or `3840x2400`. With XFCE/MATE at display scale `1.0`, the guest UI can then become ridiculously tiny. Fractional scaling inside XFCE may make the UI larger, but on some SPICE absolute-pointer setups it can also cause pointer offset, a duplicated cursor or stutter.
+
+The unified runtime keeps automatic resize but adds an adaptive sanity cap:
+
+- normal and smaller SPICE modes are kept unchanged
+- large 16:10-ish surfaces typically top out around `1920x1200`
+- large 16:9-ish surfaces can use up to `2560x1440`
+- only modes currently advertised by the guest RandR output are selected
+- the largest suitable mode close to the requested aspect ratio is preferred
+- if no close-aspect mode exists, the largest sensible mode that fits is used
+- moving the VM between displays, resizing the window, or switching fullscreen/windowed causes a fresh decision
+
+Typical examples:
+
+```text
+3200x2000 -> 1920x1200
+3840x2400 -> 1920x1200
+3840x2160 -> up to 2560x1440
+2560x1440 -> 2560x1440
+smaller window -> matching smaller SPICE mode
+```
+
+This means XFCE can normally stay at **display scale `1.0`** while still remaining usable on a high-resolution laptop panel. Small black bars can occasionally appear for unusual tiled-window aspect ratios when the guest has no RandR mode with exactly the same proportions. That is intentional and preferable to stretching the image.
+
+### GNOME / Hyprland host
+
+The host desktop/compositor is separate from the guest runtime. `x-resize` can be used when Virt-Manager is running on **GNOME or Hyprland**, including a HiDPI/fractionally-scaled laptop display and external monitors. The resize decision is based on the SPICE guest surface, so moving the VM window between host displays does not require laptop-specific or monitor-specific profiles.
+
+The **guest session itself still needs Xorg**, because `x-resize` uses RandR and the Kali/Arch profiles can additionally recalibrate Xorg evdev absolute-pointer coordinates. If the guest session is Wayland, the runtime exits cleanly.
 
 ## 🧑‍💻 Credits & Inspiration
 
@@ -284,4 +337,3 @@ The solution is based on modifying and adapting what other people smarter than m
 | Whonix       | 18.1.4.2 | >= 6.12.x | XFCE >= 4.20        |
 | Debian       | 13.5     | >= 6.12.x | XFCE >= 4.20        |
 | Arch Linux   | rolling  | >= 6.12.x | XFCE >= 4.20        |
-
