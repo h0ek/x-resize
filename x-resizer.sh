@@ -13,6 +13,9 @@ STATE_FILE="${STATE_DIR}/install.env"
 XORG_DIR="/etc/X11/xorg.conf.d"
 EVDEV_FILE="${XORG_DIR}/70-tablet-evdev.conf"
 EVDEV_BACKUP="${STATE_DIR}/70-tablet-evdev.conf.backup"
+AUTOSTART_DIR="${HOME}/.config/autostart"
+AUTOSTART_FILE="${AUTOSTART_DIR}/x-resize.desktop"
+SESSION_HELPER="${BIN_DIR}/x-resize-session-start"
 
 log() {
     printf '[x-resize] %s\n' "$*"
@@ -266,8 +269,10 @@ cleanup_legacy_user_installations() {
         "${UNIT_DIR}/x-resize-xfce.service" \
         "${UNIT_DIR}/mate-x-autoresize.service" \
         "${BIN_DIR}/x-resize" \
+        "${BIN_DIR}/x-resize-session-start" \
         "${BIN_DIR}/x-resize-xfce" \
-        "${BIN_DIR}/mate-x-autoresize"
+        "${BIN_DIR}/mate-x-autoresize" \
+        "${AUTOSTART_FILE}"
 
     systemctl --user daemon-reload
 }
@@ -339,13 +344,38 @@ pick_output() {
     xrandr --current | awk '/ connected primary/{print $1;exit} / connected/{print $1;exit}'
 }
 
-current_mode() {
+output_geometry() {
     local out="$1"
     xrandr --current | awk -v out="$out" '
-        $1 == out && $2 == "connected" { found=1; next }
-        found && $0 !~ /^[[:space:]]/ { exit }
-        found && $1 ~ /^[0-9]+x[0-9]+$/ && $0 ~ /\*/ { print $1; exit }
+        $1 == out && $2 == "connected" {
+            for (i = 3; i <= NF; i++) {
+                if ($i ~ /^[0-9]+x[0-9]+[+-][0-9]+[+-][0-9]+$/) {
+                    geometry=$i
+                    sub(/[+-].*$/, "", geometry)
+                    print geometry
+                    exit
+                }
+            }
+        }
     '
+}
+
+current_mode() {
+    local out="$1" mode
+
+    mode="$(
+        xrandr --current | awk -v out="$out" '
+            $1 == out && $2 == "connected" { found=1; next }
+            found && $0 !~ /^[[:space:]]/ { exit }
+            found && $1 ~ /^[0-9]+x[0-9]+$/ && $0 ~ /\*/ { print $1; exit }
+        '
+    )"
+
+    if [[ -n "$mode" ]]; then
+        printf '%s\n' "$mode"
+    else
+        output_geometry "$out"
+    fi
 }
 
 requested_mode() {
@@ -500,7 +530,10 @@ apply_once() {
         log "Could not determine requested mode for ${out}."
         return 0
     fi
-    [[ -n "$current" ]] || current="$desired"
+    if [[ -z "$current" ]]; then
+        log "Could not determine current mode for ${out}; forcing a refresh to ${desired}."
+        current="unknown"
+    fi
 
     IFS=x read -r dw dh <<< "$desired"
     read -r cap_w cap_h < <(cap_for_mode "$desired")
@@ -584,7 +617,6 @@ write_service() {
     cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=x-resize: adaptive Xorg RandR resize for KVM/SPICE guests
-After=graphical-session.target
 PartOf=graphical-session.target
 
 [Service]
@@ -592,9 +624,35 @@ Type=simple
 ExecStart=${SCRIPT_FILE}
 Restart=on-failure
 RestartSec=2
+EOF
+}
 
-[Install]
-WantedBy=default.target
+write_session_bootstrap() {
+    mkdir -p "$BIN_DIR" "$AUTOSTART_DIR"
+
+    cat > "$SESSION_HELPER" <<'EOF'
+#!/usr/bin/env bash
+set -u
+
+if [[ "${XDG_SESSION_TYPE:-}" != "x11" || -z "${DISPLAY:-}" ]]; then
+    exit 0
+fi
+
+systemctl --user import-environment DISPLAY XAUTHORITY XDG_SESSION_TYPE >/dev/null 2>&1 || true
+systemctl --user reset-failed x-resize.service >/dev/null 2>&1 || true
+systemctl --user restart x-resize.service
+EOF
+    chmod +x "$SESSION_HELPER"
+
+    cat > "$AUTOSTART_FILE" <<EOF
+[Desktop Entry]
+Type=Application
+Name=x-resize session bootstrap
+Comment=Start x-resize after the X11 desktop session is ready
+Exec=${SESSION_HELPER}
+OnlyShowIn=XFCE;MATE;
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
 EOF
 }
 
@@ -617,14 +675,16 @@ install_profile() {
     write_runtime
     write_config "$profile"
     write_service
+    write_session_bootstrap
 
-    systemctl --user import-environment DISPLAY XAUTHORITY XDG_SESSION_TYPE >/dev/null 2>&1 || true
+    systemctl --user disable --now x-resize.service >/dev/null 2>&1 || true
     systemctl --user daemon-reload
-    systemctl --user enable --now x-resize.service
+    "$SESSION_HELPER"
 
     printf '\nInstalled x-resize.\n'
     printf 'Profile: %s\n' "$(profile_description "$profile")"
     printf 'Service: systemctl --user status x-resize\n'
+    printf 'Startup: XDG autostart imports the live X11 session environment, then starts the user service\n'
     printf 'Logs:    journalctl --user -u x-resize -f\n'
     printf 'Config:  %s\n' "$CONFIG_FILE"
     printf 'Viewer:  Auto resize VM with window = ON, Scale Display = ON\n'

@@ -73,6 +73,8 @@ You can also choose a profile explicitly.
 - Creates:
   - `~/.local/bin/x-resize`
   - `~/.config/systemd/user/x-resize.service`
+  - `~/.local/bin/x-resize-session-start`
+  - `~/.config/autostart/x-resize.desktop`
   - `~/.config/x-resize/config`
   - **`/etc/X11/xorg.conf.d/70-tablet-evdev.conf`** (maps QEMU/SPICE tablets to **evdev** in **Absolute** mode)
 - On each resize:
@@ -81,7 +83,7 @@ You can also choose a profile explicitly.
   - Caps very large HiDPI modes to a practical resolution
   - Reads the final `WxH`
   - Sets **Evdev Axis Calibration** (`0..W-1, 0..H-1`) to keep the pointer aligned
-- Enables the common **systemd user service**
+- Starts the common **systemd user service** from XDG autostart after the X11 session environment is available
 
 > **After first install**: log out/in (or reboot) so Xorg loads the evdev InputClass.
 
@@ -94,7 +96,7 @@ You can also choose a profile explicitly.
 🪄 This profile:
 
 - Installs (if missing): `xorg-xrandr`, `xorg-xev`, `xorg-xinput`, `xfconf`, `xf86-input-evdev`, `spice-vdagent` and `qemu-guest-agent` on KVM guests
-- Creates the same common runtime, config and `x-resize.service`
+- Creates the same common runtime, config, `x-resize.service` and XDG session bootstrap
 - Creates **`/etc/X11/xorg.conf.d/70-tablet-evdev.conf`**
 - Uses the same adaptive resize logic as the other profiles
 - Recalibrates **Evdev Axis Calibration** after the final mode is selected
@@ -113,6 +115,8 @@ You can also choose a profile explicitly.
 - Creates:
   - `~/.local/bin/x-resize`
   - `~/.config/systemd/user/x-resize.service`
+  - `~/.local/bin/x-resize-session-start`
+  - `~/.config/autostart/x-resize.desktop`
   - `~/.config/x-resize/config`
 - Uses dynamic RandR resize with the adaptive HiDPI cap
 - Does not change the input driver
@@ -132,10 +136,12 @@ Aliases such as `debian` and `debian-xfce` are also accepted.
 - Creates:
   - `~/.local/bin/x-resize`
   - `~/.config/systemd/user/x-resize.service`
+  - `~/.local/bin/x-resize-session-start`
+  - `~/.config/autostart/x-resize.desktop`
   - `~/.config/x-resize/config`
 - Uses dynamic RandR resize with the adaptive HiDPI cap
 - No device reconfiguration (portable, minimal)
-- Enables the common **systemd user service**
+- Starts the common **systemd user service** from XDG autostart after the X11 session environment is available
 
 ### 🤖 Automatic detection
 
@@ -177,7 +183,7 @@ On resize you should see e.g.:
 [x-resize] request=3200x2000 current=2048x1152 cap=1920x1440 selected=1920x1200 output=Virtual-1
 ```
 
-`request` is the SPICE-preferred RandR mode (`+`), while `current` is the mode currently active in the guest (`*`). On Kali/Arch you may additionally see pointer calibration entries.
+`request` is the SPICE-preferred RandR mode (`+`). `current` normally comes from the active mode marked with `*`; on some XFCE/SPICE combinations RandR temporarily exposes no `*` marker, so x-resize falls back to the connected-output geometry instead of assuming the requested mode is already active. This avoids a false no-op where logs claim a resize happened while the framebuffer is still at an older size. On Kali/Arch you may additionally see pointer calibration entries.
 
 ---
 
@@ -187,6 +193,8 @@ On resize you should see e.g.:
 | ------- | -------------- | ------- |
 | All | `~/.local/bin/x-resize` | Common RandR listener + adaptive HiDPI mode selection |
 | All | `~/.config/systemd/user/x-resize.service` | Common systemd user unit |
+| All | `~/.local/bin/x-resize-session-start` | Imports the live X11 session environment and starts the service |
+| All | `~/.config/autostart/x-resize.desktop` | Starts the bootstrap after XFCE/MATE is ready |
 | All | `~/.config/x-resize/config` | Installed profile and resize settings |
 | Kali / Arch XFCE | `/etc/X11/xorg.conf.d/70-tablet-evdev.conf` | Force supported SPICE/QEMU tablets to **evdev** (Absolute) |
 | Kali XFCE | `xserver-xorg-input-evdev` | Required to expose **Evdev Axis Calibration** |
@@ -238,11 +246,25 @@ If an unrelated `/etc/X11/xorg.conf.d/70-tablet-evdev.conf` already exists, the 
      done
      ```
 
-7. See the installed profile and service state:
+7. If logs show `request=... current=... selected=...` but the visible guest framebuffer does not change, compare the output geometry and mode markers:
+
+   ```bash
+   xrandr --current | sed -n '1,4p'
+   ```
+
+   A current mode normally has `*`. Some XFCE/SPICE states expose no `*`; current x-resize versions use the connected-output geometry as a fallback and still force the requested mode when the framebuffer is different.
+
+8. See the installed profile and service state:
 
    ```bash
    ./x-resizer.sh status
    ```
+
+### Session startup
+
+The systemd user service is deliberately started from an XDG autostart bootstrap instead of being enabled directly under `default.target`. XFCE/MATE can create the systemd user manager before `DISPLAY`, `XAUTHORITY` and `XDG_SESSION_TYPE` are available; starting the resize service too early causes a short failure/restart loop. The bootstrap runs after the graphical desktop session exists, imports the live X11 environment into `systemd --user`, clears any stale failed state and restarts `x-resize.service`.
+
+Therefore `systemctl --user is-enabled x-resize.service` may report `disabled` while the service is correctly `active (running)` inside the desktop session. The XDG autostart entry is the startup trigger.
 
 ## 🧰 Service management
 
